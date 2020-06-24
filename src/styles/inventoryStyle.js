@@ -1,4 +1,5 @@
-import {makeStyles} from "@material-ui/core/styles";
+import {makeStyles, withStyles} from "@material-ui/core/styles";
+import {Typography} from "@material-ui/core";
 
 const drawerWidth = 215;
 // const navBarColor = "#f95d6a";
@@ -118,7 +119,24 @@ const styles = theme => ({
         width: drawerWidth,
         padding:'10px 0 10px 0',
     },
+    //Add Category
+    ButtonSpace:{
+        paddingRight: 15,
+    },
 });
+
+export const MandatoryLabel = withStyles({
+    root: {
+        color: "#f44336",
+        textTransform: "capitalize",
+    }
+})(Typography);
+
+export const Label = withStyles({
+    root: {
+        textTransform: "capitalize",
+    }
+})(Typography);
 
 export const inventoryStyles = makeStyles(theme => styles(theme));
 export const inventoryStylesCore = theme => styles(theme);

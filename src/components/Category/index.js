@@ -1,4 +1,5 @@
-import React from "react";
+import React, {useEffect} from "react";
+import { useForm } from "react-hook-form";
 import Typography from "@material-ui/core/Typography";
 import Divider from "@material-ui/core/Divider";
 import TextField from "@material-ui/core/TextField";
@@ -8,10 +9,18 @@ import Grid from "@material-ui/core/Grid";
 import withWidth from '@material-ui/core/withWidth';
 import parse from 'autosuggest-highlight/parse';
 import match from 'autosuggest-highlight/match';
+import Button from "@material-ui/core/Button";
+import {inventoryStyles, Label, MandatoryLabel} from "../../styles";
+import Checkbox from "@material-ui/core/Checkbox";
+import FormControlLabel from "@material-ui/core/FormControlLabel";
+import FormGroup from "@material-ui/core/FormGroup";
+import ChipInput from 'material-ui-chip-input'
+import Chip from "@material-ui/core/Chip";
+import AddCircleIcon from '@material-ui/icons/AddCircle';
 
 const filter = createFilterOptions();
 
-const top100Films = [
+const units = [
     { title: 'pcs'},
     { title: 'kg'},
     { title: 'g'},
@@ -28,7 +37,62 @@ const top100Films = [
 ];
 
 function Index(props) {
-    const [value, setValue] = React.useState(null);
+    const classes = inventoryStyles();
+    const {InventoryService} = props;
+    const { register, errors, setValue, handleSubmit } = useForm();
+    const [unitValue, setUnitValue] = React.useState(null);
+    const [multipleAttributes,setMultipleAttributes ] = React.useState(false);
+    const [categoryNames, setcategoryNames] = React.useState([]);
+
+    useEffect(()=>{
+        //Check for server connection
+        const message = { ping: "Pinggg", msgType: "PingRequest" }
+        InventoryService.Ping(
+            message,
+            {},
+            (err, response) => {
+                if(err){
+                    console.log(err)
+                } else {
+                    console.log("Connected to the golang server using gRPC")
+                }
+            }
+        );
+
+        //Get Category Names
+        const message_name = {msgType: "GetCategoryRequest"}
+        InventoryService.GetCategory(
+            message_name,
+            {},
+            (err, res) => {
+                if(err){
+                    console.log(err)
+                } else {
+                    setcategoryNames(res.categorynameList);
+                }
+            }
+        );
+
+    },[InventoryService, setcategoryNames]);
+
+    const onSubmit = data => {
+        const message = {
+            name: data.categoryName,
+            description: data.Description,
+            parent: data.parentCategoryId,
+            unit: data.unit,
+            manufacturer: data.manufacture,
+            brand: data.brand,
+            msgType: "AddCategoryRequest"
+        };
+        InventoryService.AddCategory(
+            message,
+            {},
+            (err, res) => {
+                console.log(res)
+            }
+        );
+    }
 
     return(
         <React.Fragment>
@@ -37,7 +101,7 @@ function Index(props) {
             </Typography>
             <Divider/>
             <Box pt={2}>
-                <form noValidate autoComplete="off">
+                <form onSubmit={handleSubmit(onSubmit)} noValidate autoComplete="off">
                     <Grid
                         container
                         justify="flex-start"
@@ -45,15 +109,19 @@ function Index(props) {
                         spacing={props.width === 'xs' || props.width === 'sm' ? 1 : 3}
                     >
                         <Grid item xs={12} md={2}>
-                            <Typography variant="subtitle1">
-                                Category Name*
-                            </Typography>
+                            <MandatoryLabel>
+                                category name*
+                            </MandatoryLabel>
                         </Grid>
                         <Grid item xs={12} md={5}>
                             <TextField
+                                name="categoryName"
                                 aria-label={'Category Name'}
                                 variant="outlined"
                                 size="small"
+                                inputRef={register({required:"Category Name is required.", minLength:{value:3, message:"Category name must be atleast 3 letters."}})}
+                                error={!!errors.categoryName}
+                                helperText={errors.categoryName?.message}
                                 fullWidth
                             />
                         </Grid>
@@ -61,16 +129,18 @@ function Index(props) {
                         </Grid>
 
                         <Grid item xs={12} md={2}>
-                            <Typography variant="subtitle1">
-                                Description
-                            </Typography>
+                            <Label>
+                                description
+                            </Label>
                         </Grid>
                         <Grid item xs={12} md={5}>
                             <TextField
+                                name="Description"
                                 aria-label={'Description about category'}
                                 variant="outlined"
                                 multiline
                                 rows={3}
+                                inputRef={register}
                                 fullWidth
                             />
                         </Grid>
@@ -78,26 +148,52 @@ function Index(props) {
                         </Grid>
 
                         <Grid item xs={12} md={2}>
-                            <Typography variant="subtitle1">
+                            <Label>
+                                parent category
+                            </Label>
+                        </Grid>
+                        <Grid item xs={12} md={5}>
+                            <input name="parentCategoryId" ref={register} hidden/>
+                            <Autocomplete
+                                options={categoryNames}
+                                getOptionLabel={(option) => option.name}
+                                onChange={(event, value) => {setValue("parentCategoryId", value.id)}}
+                                renderInput={(params) =>
+                                    <TextField
+                                        name="parentCategory"
+                                        {...params}
+                                        size="small"
+                                        placeholder="Select Parent Category if exists"
+                                        variant="outlined"
+                                        inputRef={register}
+                                        fullWidth
+                                    />}
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={5}>
+                        </Grid>
+
+                        <Grid item xs={12} md={2}>
+                            <MandatoryLabel>
                                 Unit*
-                            </Typography>
+                            </MandatoryLabel>
                         </Grid>
                         <Grid item xs={12} md={5}>
                             <Autocomplete
-                                value={value}
+                                value={unitValue}
                                 onChange={(event, newValue) => {
                                     if (typeof newValue === 'string') {
-                                        setValue({
+                                        setUnitValue({
                                             title: newValue,
                                         });
                                     } else if (newValue && newValue.inputValue) {
                                         // Create a new value from the user input
-                                        setValue({
+                                        setUnitValue({
                                             title: newValue.inputValue,
                                         });
-                                        top100Films.push({title: newValue.inputValue})
+                                        units.push({title: newValue.inputValue})
                                     } else {
-                                        setValue(newValue);
+                                        setUnitValue(newValue);
                                     }
                                 }}
                                 filterOptions={(options, params) => {
@@ -115,7 +211,7 @@ function Index(props) {
                                 selectOnFocus
                                 clearOnBlur
                                 handleHomeEndKeys
-                                options={top100Films}
+                                options={units}
                                 getOptionLabel={(option) => {
                                     // Value selected with enter, right from the input
                                     if (typeof option === 'string') {
@@ -145,11 +241,15 @@ function Index(props) {
                                 freeSolo
                                 renderInput={(params) => (
                                     <TextField
+                                        name="unit"
                                         {...params}
                                         size="small"
                                         placeholder="Select or Add Unit"
                                         aria-placeholder="Select or Add Unit"
                                         variant="outlined"
+                                        inputRef={register({required:"Please select unit."})}
+                                        error={!!errors.unit}
+                                        helperText={errors.unit?.message}
                                         fullWidth
                                     />
                                 )}
@@ -159,26 +259,26 @@ function Index(props) {
                         </Grid>
 
                         <Grid item xs={12} md={2}>
-                            <Typography variant="subtitle1">
+                            <Label>
                                 Manufacture
-                            </Typography>
+                            </Label>
                         </Grid>
                         <Grid item xs={12} md={5}>
                             <Autocomplete
-                                value={value}
+                                value={unitValue}
                                 onChange={(event, newValue) => {
                                     if (typeof newValue === 'string') {
-                                        setValue({
+                                        setUnitValue({
                                             title: newValue,
                                         });
                                     } else if (newValue && newValue.inputValue) {
                                         // Create a new value from the user input
-                                        setValue({
+                                        setUnitValue({
                                             title: newValue.inputValue,
                                         });
-                                        top100Films.push({title: newValue.inputValue})
+                                        units.push({title: newValue.inputValue})
                                     } else {
-                                        setValue(newValue);
+                                        setUnitValue(newValue);
                                     }
                                 }}
                                 filterOptions={(options, params) => {
@@ -196,7 +296,7 @@ function Index(props) {
                                 selectOnFocus
                                 clearOnBlur
                                 handleHomeEndKeys
-                                options={top100Films}
+                                options={units}
                                 getOptionLabel={(option) => {
                                     // Value selected with enter, right from the input
                                     if (typeof option === 'string') {
@@ -226,11 +326,13 @@ function Index(props) {
                                 freeSolo
                                 renderInput={(params) => (
                                     <TextField
+                                        name="manufacture"
                                         {...params}
                                         size="small"
                                         placeholder="Select or Add Manufacture"
                                         aria-placeholder="Select or Add Manufacture"
                                         variant="outlined"
+                                        inputRef={register}
                                         fullWidth
                                     />
                                 )}
@@ -240,26 +342,26 @@ function Index(props) {
                         </Grid>
 
                         <Grid item xs={12} md={2}>
-                            <Typography variant="subtitle1">
+                            <Label>
                                 Brand
-                            </Typography>
+                            </Label>
                         </Grid>
                         <Grid item xs={12} md={5}>
                             <Autocomplete
-                                value={value}
+                                value={unitValue}
                                 onChange={(event, newValue) => {
                                     if (typeof newValue === 'string') {
-                                        setValue({
+                                        setUnitValue({
                                             title: newValue,
                                         });
                                     } else if (newValue && newValue.inputValue) {
                                         // Create a new value from the user input
-                                        setValue({
+                                        setUnitValue({
                                             title: newValue.inputValue,
                                         });
-                                        top100Films.push({title: newValue.inputValue})
+                                        units.push({title: newValue.inputValue})
                                     } else {
-                                        setValue(newValue);
+                                        setUnitValue(newValue);
                                     }
                                 }}
                                 filterOptions={(options, params) => {
@@ -277,7 +379,7 @@ function Index(props) {
                                 selectOnFocus
                                 clearOnBlur
                                 handleHomeEndKeys
-                                options={top100Films}
+                                options={units}
                                 getOptionLabel={(option) => {
                                     // Value selected with enter, right from the input
                                     if (typeof option === 'string') {
@@ -307,17 +409,114 @@ function Index(props) {
                                 freeSolo
                                 renderInput={(params) => (
                                     <TextField
+                                        name="brand"
                                         {...params}
                                         size="small"
                                         placeholder="Select or Add Brand"
                                         aria-placeholder="Select or Add Brand"
                                         variant="outlined"
+                                        inputRef={register}
                                         fullWidth
                                     />
                                 )}
                             />
                         </Grid>
                         <Grid item xs={12} md={5}>
+                        </Grid>
+
+                        <Grid item xs={12} md={2}>
+                            <MandatoryLabel>
+                                multiple attributes?*
+                            </MandatoryLabel>
+                        </Grid>
+                        <Grid item xs={12} md={5}>
+                            <FormGroup>
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox
+                                            size="small"
+                                            checked={multipleAttributes}
+                                            onChange={()=>{setMultipleAttributes(!multipleAttributes)}}
+                                        />
+                                    }
+                                    label="Create Custom Attributes and Options"
+                                />
+                            </FormGroup>
+                        </Grid>
+                        <Grid item xs={12} md={5}>
+                        </Grid>
+
+                        {
+                            multipleAttributes ?
+                                <React.Fragment>
+                                    <Grid item xs={12} md={2}>
+                                    </Grid>
+                                    <Grid item xs={12} md={5}>
+                                        <Grid
+                                            container
+                                            direction="row"
+                                            justify="flex-start"
+                                            alignItems="flex-start"
+                                            spacing={1}
+                                        >
+                                            <Grid item xs={12} md={6}>
+                                                <MandatoryLabel>
+                                                    Attribute*
+                                                </MandatoryLabel>
+                                                <TextField
+                                                    aria-label={'Attribute Name'}
+                                                    variant="outlined"
+                                                    placeholder={'Enter Attribute Name'}
+                                                    fullWidth
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12} md={6}>
+                                                <MandatoryLabel>
+                                                    Option*
+                                                </MandatoryLabel>
+                                                <ChipInput
+                                                    variant={"outlined"}
+                                                    placeholder="Enter Attribute Options"
+                                                    fullWidth
+                                                    chipRenderer={({ value, isFocused, isDisabled, handleClick, handleRequestDelete }, key) => (
+                                                        <Chip
+                                                            key={key}
+                                                            size="small"
+                                                            label={value}
+                                                            onDelete={()=>{alert("delete")}}
+                                                            color="secondary"
+                                                        />
+                                                    )}
+                                                />
+                                            </Grid>
+                                        </Grid>
+                                    </Grid>
+                                <Grid item xs={12} md={5}>
+                                </Grid>
+
+                                <Grid item xs={12} md={2}>
+                                </Grid>
+                                <Grid item xs={12} md={10}>
+                                    <Button
+                                    startIcon={<AddCircleIcon color="secondary" />}
+                                    size="small"
+                                    >
+                                        Add more attributes
+                                    </Button>
+                                </Grid>
+                            </React.Fragment>
+                            :
+                            null
+                        }
+
+                        <Grid item xs={12}>
+                            <Button type="submit" variant="contained" color="secondary">
+                                Save
+                            </Button>
+                            <span className={classes.ButtonSpace} />
+                            <Button variant="contained">
+                                Cancel
+                            </Button>
                         </Grid>
 
                     </Grid>

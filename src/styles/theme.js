@@ -25,6 +25,11 @@ const theme = createMuiTheme({
                 fontWeight: "500",
             }
         },
+        MuiButton: {
+            label: {
+                textTransform: 'capitalize',
+            }
+        },
         MuiListItem: {
             root: {
                 "&.Mui-selected": {
